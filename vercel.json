@@ -1,8 +1,14 @@
 {
+  "framework": null,
   "installCommand": "npm --prefix frontend install",
   "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
-  "rewrites": [{ "source": "/api/:path*", "destination": "/api/index" }],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index"
+    }
+  ],
   "functions": {
     "api/index.py": {
       "includeFiles": "{backend/app/**,config/**}",
