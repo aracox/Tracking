@@ -1,0 +1,8 @@
+.scene3d { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.scene3d canvas { display: block; }
+.label-host { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.marker-label {
+  position: absolute; left: 0; top: 0; display: none;
+  font: 10px/1 var(--mono); color: #cfd8e3; text-shadow: 0 0 3px #000, 0 0 3px #000;
+  white-space: nowrap; will-change: transform;
+}

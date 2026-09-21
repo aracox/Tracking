@@ -1,0 +1,77 @@
+import type { MotionData, SessionMetadata, SessionPayload, SessionSummary, SkeletonConfig } from '../types'
+import { displayScale, writeQualisysAsThree } from '../lib/coords'
+
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+
+async function getJson<T>(path: string): Promise<T> {
+  const r = await fetch(`${BASE}${path}`)
+  if (!r.ok) {
+    let detail = r.statusText
+    try {
+      detail = (await r.json()).detail ?? detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`${r.status}: ${detail}`)
+  }
+  return r.json() as Promise<T>
+}
+
+export const fetchSessions = () => getJson<SessionSummary[]>('/api/sessions')
+export const fetchSkeleton = () => getJson<SkeletonConfig>('/api/skeleton')
+
+export type LoadStage = 'parsing' | 'downloading' | 'preparing'
+
+/** Loads a complete session once; playback afterwards is entirely local. */
+export async function loadSession(
+  id: string,
+  onStage: (s: LoadStage) => void,
+): Promise<MotionData> {
+  onStage('parsing') // server parses Excel (first request) and caches
+  const meta = await getJson<SessionMetadata>(`/api/sessions/${encodeURIComponent(id)}`)
+  onStage('downloading')
+  const payload = await getJson<SessionPayload>(`/api/sessions/${encodeURIComponent(id)}/data`)
+  onStage('preparing')
+  await new Promise((r) => setTimeout(r, 0)) // let the UI paint the stage
+  return toMotionData(meta, payload)
+}
+
+export function toMotionData(meta: SessionMetadata, p: SessionPayload): MotionData {
+  const F = p.frames.length
+  const M = p.markers.length
+  const positions = Float32Array.from(p.positions)
+  const valid = Uint8Array.from(p.valid)
+
+  // Bounds of valid samples, in display space.
+  const scale = displayScale(meta.positionUnit)
+  const min: [number, number, number] = [Infinity, Infinity, Infinity]
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
+  const tmp = new Float32Array(3)
+  for (let i = 0; i < F * M; i++) {
+    if (!valid[i]) continue
+    writeQualisysAsThree(tmp, 0, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2], scale)
+    for (let a = 0; a < 3; a++) {
+      if (tmp[a] < min[a]) min[a] = tmp[a]
+      if (tmp[a] > max[a]) max[a] = tmp[a]
+    }
+  }
+  if (!Number.isFinite(min[0])) {
+    min.fill(-1)
+    max.fill(1)
+  }
+
+  return {
+    meta,
+    frameCount: F,
+    markerCount: M,
+    markers: p.markers,
+    frames: Int32Array.from(p.frames),
+    timestamps: Float64Array.from(p.timestamps),
+    positions,
+    valid,
+    velocities: p.velocities ? Float32Array.from(p.velocities) : null,
+    validVel: p.validVelocity ? Uint8Array.from(p.validVelocity) : null,
+    speed: p.speed ? Float32Array.from(p.speed) : null,
+    bounds: { min, max },
+  }
+}

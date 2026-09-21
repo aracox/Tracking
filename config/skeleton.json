@@ -1,0 +1,24 @@
+{
+  "_comment": "Visualization-only connectivity between marker names. Connections whose markers are absent from a session are ignored. Names are matched after trimming whitespace.",
+  "connections": [
+    ["c7", "sc"],
+    ["sc", "st"],
+    ["c7", "ac l"], ["c7", "ac r"],
+    ["sc", "ac l"], ["sc", "ac r"],
+
+    ["ac l", "el l"], ["el l", "wr l"],
+    ["wr l", "H 1 l"], ["wr l", "H 5 l"], ["H 1 l", "H 5 l"],
+
+    ["ac r", "el r"], ["el r", "wr r"],
+    ["wr r", "H 1 r"], ["wr r", "H 5 r"], ["H 1 r", "H 5 r"],
+
+    ["sc", "asis l"], ["sc", "asis r"],
+    ["asis l", "asis r"],
+
+    ["asis l", "knee l"], ["knee l", "ankle l"],
+    ["ankle l", "toe 1 l"], ["ankle l", "toe 5 l"], ["toe 1 l", "toe 5 l"],
+
+    ["asis r", "knee r"], ["knee r", "ankle r"],
+    ["ankle r", "toe 1 r"], ["ankle r", "toe 5 r"], ["toe 1 r", "toe 5 r"]
+  ]
+}
