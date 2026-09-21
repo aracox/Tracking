@@ -105,7 +105,8 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Qualisys Motion Viewer</h1>
+        <img className="logo" src="/cutip-logo.png" alt="CUTIP" />
+        <h1>CUTIP research project</h1>
         <label>
           Session
           <select value={serverId ?? ''} onChange={(e) => openServer(e.target.value)}>

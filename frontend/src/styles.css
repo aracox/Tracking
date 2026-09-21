@@ -12,6 +12,7 @@ code { font-family: var(--mono); background: var(--panel-2); padding: 0 4px; bor
 
 .app { display: grid; grid-template-rows: 40px minmax(0, 1fr) auto 200px; height: 100%; }
 header { display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header .logo { height: 28px; width: auto; margin-right: -4px; }
 header h1 { font-size: 13px; font-weight: 600; margin: 0 8px 0 0; letter-spacing: .02em; }
 header label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .spacer { flex: 1; }
