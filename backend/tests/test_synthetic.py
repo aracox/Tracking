@@ -80,3 +80,34 @@ def test_cache_and_listing(tmp_path):
     assert svc.get("p") is svc.get("p")  # cached
     write_qualisys(tmp_path / "q_Pos.xlsx", "pos", MK, rows(5))
     assert [x.id for x in svc.list_sessions()] == ["p", "q"]  # new files picked up
+
+
+def test_upload_endpoint_is_stateless(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    write_qualisys(tmp_path / "u_Pos.xlsx", "pos", MK, rows(12, zero_from=6), first_frame=3)
+    write_qualisys(tmp_path / "u_Vel.xlsx", "vel", MK, [[(3.0, 4.0, 0.0), (0.0, 0.0, 1.0)]] * 12, first_frame=3)
+    c = TestClient(app)
+    with open(tmp_path / "u_Pos.xlsx", "rb") as p, open(tmp_path / "u_Vel.xlsx", "rb") as v:
+        r = c.post("/api/parse", files={"position": ("u_Pos.xlsx", p), "velocity": ("u_Vel.xlsx", v)})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["meta"]["id"] == "u" and j["meta"]["hasVelocity"] and j["meta"]["frameCount"] == 12
+    assert len(j["data"]["positions"]) == 12 * 2 * 3
+    with open(tmp_path / "u_Pos.xlsx", "rb") as p:  # position only
+        assert c.post("/api/parse", files={"position": ("u_Pos.xlsx", p)}).json()["meta"]["hasVelocity"] is False
+    bad = c.post("/api/parse", files={"position": ("x_Pos.xlsx", b"not excel")})
+    assert bad.status_code == 422
+
+
+def test_upload_size_limit(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import config
+    from app.main import app
+
+    monkeypatch.setattr(config, "MAX_UPLOAD_BYTES", 100)
+    r = TestClient(app).post("/api/parse", files={"position": ("big_Pos.xlsx", b"x" * 500)})
+    assert r.status_code == 413

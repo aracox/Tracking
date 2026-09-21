@@ -81,3 +81,9 @@ aside.right { border-left: 1px solid var(--line); }
 .chart-legend i { display: inline-block; width: 8px; height: 2px; margin-right: 3px; vertical-align: middle; }
 .chart-host { flex: 1; min-height: 0; overflow: hidden; }
 .u-over { cursor: crosshair; }
+
+.upload { display: flex; flex-direction: column; gap: 6px; }
+.upload label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); }
+.upload input[type=file] { width: 100%; font-size: 11px; color: var(--text); }
+.upload button:disabled { opacity: .45; cursor: default; }
+.upload p { margin: 0; font-size: 11px; word-break: break-all; }

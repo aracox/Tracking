@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { MotionData, SessionSummary } from '../../types'
 import { fmt } from '../../lib/format'
 
@@ -55,6 +56,25 @@ export function SessionInfo({ data }: { data: MotionData }) {
       {m.warnings.map((w) => (
         <p key={w} className="warn">⚠ {w}</p>
       ))}
+    </section>
+  )
+}
+
+/** Open local Qualisys exports without them being on the server (e.g. on Vercel). */
+export function UploadPanel({ onOpen, active }: { onOpen: (pos: File, vel: File | null) => void; active: string | null }) {
+  const [pos, setPos] = useState<File | null>(null)
+  const [vel, setVel] = useState<File | null>(null)
+  return (
+    <section className="panel upload">
+      <h3>Open files</h3>
+      <label>Position <span className="muted">(*_Pos.xlsx)</span>
+        <input type="file" accept=".xlsx" onChange={(e) => setPos(e.target.files?.[0] ?? null)} />
+      </label>
+      <label>Velocity <span className="muted">(optional)</span>
+        <input type="file" accept=".xlsx" onChange={(e) => setVel(e.target.files?.[0] ?? null)} />
+      </label>
+      <button className="primary" disabled={!pos} onClick={() => pos && onOpen(pos, vel)}>Load</button>
+      {active && <p className="muted">Loaded: {active}</p>}
     </section>
   )
 }

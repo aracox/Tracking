@@ -1,7 +1,8 @@
 import type { MotionData, SessionMetadata, SessionPayload, SessionSummary, SkeletonConfig } from '../types'
 import { displayScale, writeQualisysAsThree } from '../lib/coords'
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
+// Dev: FastAPI on :8000. Production (Vercel): same origin, /api/* is the serverless function.
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? '' : 'http://localhost:8000')
 
 async function getJson<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`)
@@ -20,7 +21,7 @@ async function getJson<T>(path: string): Promise<T> {
 export const fetchSessions = () => getJson<SessionSummary[]>('/api/sessions')
 export const fetchSkeleton = () => getJson<SkeletonConfig>('/api/skeleton')
 
-export type LoadStage = 'parsing' | 'downloading' | 'preparing'
+export type LoadStage = 'uploading' | 'parsing' | 'downloading' | 'preparing'
 
 /** Loads a complete session once; playback afterwards is entirely local. */
 export async function loadSession(
@@ -34,6 +35,34 @@ export async function loadSession(
   onStage('preparing')
   await new Promise((r) => setTimeout(r, 0)) // let the UI paint the stage
   return toMotionData(meta, payload)
+}
+
+/** Stateless path: upload Pos (+ optional Vel) workbooks; server parses and returns the
+ *  normalized session in the same response. Nothing is stored server-side. */
+export async function uploadSession(
+  position: File,
+  velocity: File | null,
+  onStage: (s: LoadStage) => void,
+): Promise<MotionData> {
+  onStage('uploading')
+  const form = new FormData()
+  form.append('position', position)
+  if (velocity) form.append('velocity', velocity)
+  const r = await fetch(`${BASE}/api/parse`, { method: 'POST', body: form })
+  onStage('parsing')
+  if (!r.ok) {
+    let detail = r.statusText
+    try {
+      detail = (await r.json()).detail ?? detail
+    } catch {
+      if (r.status === 413) detail = 'Upload too large'
+    }
+    throw new Error(`${r.status}: ${detail}`)
+  }
+  const { meta, data } = (await r.json()) as { meta: SessionMetadata; data: SessionPayload }
+  onStage('preparing')
+  await new Promise((res) => setTimeout(res, 0))
+  return toMotionData(meta, data)
 }
 
 export function toMotionData(meta: SessionMetadata, p: SessionPayload): MotionData {

@@ -1,0 +1,6 @@
+# Runtime dependencies for the Vercel Python function (dev/test deps: backend/requirements.txt)
+fastapi>=0.115
+numpy>=1.26
+openpyxl>=3.1
+pydantic>=2.7
+python-multipart>=0.0.9

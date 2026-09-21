@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchSessions, fetchSkeleton } from './services/api'
-import { useSession } from './hooks/useSession'
+import { useSession, type SessionSource } from './hooks/useSession'
 import { useHotkeys } from './hooks/useHotkeys'
 import { PlaybackEngine } from './lib/playback'
 import type { SessionSummary, SkeletonConfig, TrailWindow, ViewSettings } from './types'
@@ -8,7 +8,7 @@ import { Scene3D, type SceneApi } from './components/Scene3D/Scene3D'
 import { PlaybackControls } from './components/PlaybackControls/PlaybackControls'
 import { MarkerPanel } from './components/MarkerPanel/MarkerPanel'
 import { Charts } from './components/Charts/Charts'
-import { SessionInfo, SessionList } from './components/SessionPanel/SessionPanel'
+import { SessionInfo, SessionList, UploadPanel } from './components/SessionPanel/SessionPanel'
 
 const DEFAULTS: ViewSettings = {
   markers: true,
@@ -24,6 +24,7 @@ const DEFAULTS: ViewSettings = {
 }
 
 const STAGE_TEXT = {
+  uploading: 'Uploading files…',
   parsing: 'Parsing Position and Velocity data…',
   downloading: 'Downloading normalized session…',
   preparing: 'Preparing visualization…',
@@ -43,10 +44,12 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [listError, setListError] = useState<string | null>(null)
   const [skeleton, setSkeleton] = useState<SkeletonConfig>({ connections: [] })
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [source, setSource] = useState<SessionSource | null>(null)
   const [selected, setSelected] = useState<number | null>(0)
   const [settings, setSettings] = useState<ViewSettings>(DEFAULTS)
-  const state = useSession(sessionId)
+  const state = useSession(source)
+  const serverId = source?.kind === 'server' ? source.id : null
+  const openServer = (id: string) => setSource({ kind: 'server', id })
   const data = state.status === 'ready' ? state.data : null
 
   const refresh = () =>
@@ -54,7 +57,7 @@ export default function App() {
       .then((s) => {
         setSessions(s)
         setListError(null)
-        setSessionId((cur) => cur ?? s.find((x) => !x.error)?.id ?? null)
+        setSource((cur) => cur ?? (s.find((x) => !x.error) ? { kind: 'server', id: s.find((x) => !x.error)!.id } : null))
       })
       .catch((e) => setListError(String(e.message ?? e)))
 
@@ -105,7 +108,8 @@ export default function App() {
         <h1>Qualisys Motion Viewer</h1>
         <label>
           Session
-          <select value={sessionId ?? ''} onChange={(e) => setSessionId(e.target.value)}>
+          <select value={serverId ?? ''} onChange={(e) => openServer(e.target.value)}>
+            {serverId === null && <option value="">{source?.kind === 'upload' ? `Uploaded: ${source.position.name}` : '—'}</option>}
             {sessions.map((s) => (
               <option key={s.id} value={s.id} disabled={!!s.error}>{s.id}</option>
             ))}
@@ -121,7 +125,11 @@ export default function App() {
 
       <div className="main">
         <aside className="left">
-          <SessionList sessions={sessions} active={sessionId} onOpen={setSessionId} />
+          <SessionList sessions={sessions} active={serverId} onOpen={openServer} />
+          <UploadPanel
+            active={source?.kind === 'upload' ? source.position.name : null}
+            onOpen={(position, velocity) => setSource({ kind: 'upload', position, velocity })}
+          />
           {data && (
             <section className="panel markers">
               <h3>Markers</h3>
@@ -141,7 +149,7 @@ export default function App() {
 
         <div className="center">
           {listError && <div className="overlay error">Cannot reach backend: {listError}<br />Start it with <code>scripts/run_dev.sh</code></div>}
-          {!listError && sessions.length === 0 && <div className="overlay">No sessions found. Put <code>name_Pos.xlsx</code> (and optionally <code>name_Vel.xlsx</code>) into <code>data/</code>.</div>}
+          {!listError && sessions.length === 0 && !source && <div className="overlay">No sessions on the server. Use <b>Open files</b> (left) to load a <code>*_Pos.xlsx</code> and optionally its <code>*_Vel.xlsx</code>.</div>}
           {state.status === 'loading' && (
             <div className="overlay">
               <div className="spinner" />

@@ -47,6 +47,21 @@ Pos and Vel are aligned by frame number and marker name, not array position.
 test1: 1205 frames (122-1326), 300 Hz, 4.013 s, 23 markers, 69 pos + 69 vel channels,
 Time = (Frame-1)/300. Marker `st` is exactly (0,0,0) for frames 841-1326 (486 samples).
 
+## Deploy to Vercel (frontend + API in one project)
+
+`vercel.json` builds the Vite app (`frontend/dist`) and serves FastAPI as a Python function at `/api/*`
+(`api/index.py` -> `backend/app`, deps from root `requirements.txt`). Import the repo in Vercel with the
+default settings (Root Directory = repo root); no environment variables are required.
+
+`data/` is not deployed, so on Vercel use **Open files** in the left panel: pick `*_Pos.xlsx` (and optionally
+`*_Vel.xlsx`). The browser posts them to `POST /api/parse`, which parses in memory and returns the session; nothing
+is stored on the server, and playback then runs locally as usual.
+
+Vercel limits: request body 4.5 MB (both files together; server cap `QREPLAY_MAX_UPLOAD_BYTES`, default 4.3 MB) and
+response body 4.5 MB (test1 = 1.6 MB, roughly 1 MB per 2.5 s of 23-marker Pos+Vel data). Longer recordings need a
+binary/compact payload or storage (e.g. Vercel Blob) - see limitations. Not deployed/verified on Vercel from this
+machine; verified by importing `api/index.py` without `data/` and uploading the real test1 files.
+
 ## Data integrity layers
 1. **Raw** - values exactly as in Excel (blank/non-numeric -> NaN). Never modified.
 2. **Normalized** - `positions[F,M,3]`, `velocities[F,M,3]`, `valid_positions[F,M]`, `speed[F,M]`
