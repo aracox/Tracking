@@ -6,6 +6,7 @@ import { useHotkeys } from './hooks/useHotkeys'
 import { PlaybackEngine } from './lib/playback'
 import { resolveSkeletonPairs } from './lib/skeletonPairs'
 import { DEFAULT_OVERLAY_TRANSFORM } from './lib/overlay'
+import { downloadOverlayState, type SavedOverlayState } from './lib/overlayFile'
 import type { LayerSettings, OverlayTransform, SessionSummary, SkeletonConfig, TrailWindow, ViewMode, ViewSettings } from './types'
 import { Scene3D, type SceneApi } from './components/Scene3D/Scene3D'
 import { Overlay2D, type Overlay2DApi } from './components/Overlay2D/Overlay2D'
@@ -93,6 +94,7 @@ export default function App() {
       engine.load(data.timestamps)
       setSelected((s) => (s !== null && s < data.markerCount ? s : 0))
       // Overlay alignment is per-video; a new session starts from a clean slate.
+      // (Use Load in the 2D overlay panel to restore a previously-saved .json.)
       setViewMode('3d')
       setOverlayTransform(DEFAULT_OVERLAY_TRANSFORM)
       setBaseScale(DEFAULT_OVERLAY_TRANSFORM.scale)
@@ -254,6 +256,25 @@ export default function App() {
               onReset={() => {
                 setOverlayTransform(DEFAULT_OVERLAY_TRANSFORM)
                 setBaseScale(DEFAULT_OVERLAY_TRANSFORM.scale)
+              }}
+              onSave={() =>
+                downloadOverlayState(data.meta.id, {
+                  viewMode,
+                  transform: overlayTransform,
+                  baseScale,
+                  videoOffsetSeconds,
+                  videoLayer,
+                  trackingLayer,
+                })
+              }
+              onLoad={(saved: SavedOverlayState) => {
+                const hasVideo = data.meta.hasVideo || (source?.kind === 'upload' && !!source.video)
+                setViewMode(saved.viewMode === 'overlay2d' && hasVideo ? 'overlay2d' : '3d')
+                setOverlayTransform(saved.transform)
+                setBaseScale(saved.baseScale)
+                setVideoOffsetSeconds(saved.videoOffsetSeconds)
+                setVideoLayer(saved.videoLayer)
+                setTrackingLayer(saved.trackingLayer)
               }}
               baseScale={baseScale}
               videoLayer={videoLayer}

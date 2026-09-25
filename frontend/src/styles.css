@@ -61,6 +61,10 @@ aside.right { border-left: 1px solid var(--line); }
 .row { display: flex; align-items: center; gap: 8px; margin-top: 6px; } .row > span { color: var(--muted); min-width: 78px; } .row input[type=range] { flex: 1; min-width: 0; }
 
 .overlay-controls h3.sub { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.overlay-controls .save-btn { background: #1f4b7a; border-color: #2d6aa8; }
+.overlay-controls .load-error { background: #4a1f1f; border-color: var(--bad); color: var(--bad); }
+.overlay-controls .position-readout { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
+.overlay-controls .position-readout b { color: #ffe14d; }
 .overlay-controls .hint { margin: 4px 0 0; font-size: 10.5px; line-height: 1.4; }
 .overlay-controls .btn-row { display: flex; gap: 6px; margin-top: 8px; }
 .overlay-controls .btn-row button { flex: 1; }
