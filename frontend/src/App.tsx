@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchSessions, fetchSkeleton } from './services/api'
+import { fetchDefaultOverlay, fetchSessions, fetchSkeleton } from './services/api'
 import { useSession, type SessionSource } from './hooks/useSession'
 import { useVideoUrl } from './hooks/useVideoUrl'
 import { useHotkeys } from './hooks/useHotkeys'
@@ -102,6 +102,22 @@ export default function App() {
       setVideoDuration(null)
       setVideoLayer(DEFAULT_LAYER)
       setTrackingLayer(DEFAULT_LAYER)
+
+      // If data/<id>_overlay.json exists (the same file Save produces, dropped in by
+      // convention), apply it as the starting alignment so it's already correct by
+      // the time the user switches to 2D overlay - no manual Load needed.
+      let cancelled = false
+      fetchDefaultOverlay(data.meta.id).then((saved) => {
+        if (cancelled || !saved) return
+        setOverlayTransform(saved.transform)
+        setBaseScale(saved.baseScale)
+        setVideoOffsetSeconds(saved.videoOffsetSeconds)
+        setVideoLayer(saved.videoLayer)
+        setTrackingLayer(saved.trackingLayer)
+      })
+      return () => {
+        cancelled = true
+      }
     }
   }, [data, engine])
 

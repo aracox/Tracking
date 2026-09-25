@@ -1,5 +1,6 @@
 import type { MotionData, SessionMetadata, SessionPayload, SessionSummary, SkeletonConfig } from '../types'
 import { displayScale, writeQualisysAsThree } from '../lib/coords'
+import { parseOverlayFile, type SavedOverlayState } from '../lib/overlayFile'
 
 // Dev: FastAPI on :8000. Production (Vercel): same origin, /api/* is the serverless function.
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? '' : 'http://localhost:8000')
@@ -24,6 +25,21 @@ export const fetchSkeleton = () => getJson<SkeletonConfig>('/api/skeleton')
 /** URL for a server-discovered session's camera video (local dev only; data/ is not
  *  deployed on Vercel, so server sessions there never report `hasVideo`). */
 export const mediaUrl = (filename: string) => `${BASE}/media/${encodeURIComponent(filename)}`
+
+/** Optional per-session default 2D overlay alignment: `data/<id>_overlay.json`, the
+ *  same file the Save button produces, just dropped in `data/` by convention so it
+ *  loads automatically instead of via the Load button. Local dev only (served
+ *  through /media, like the camera video); returns null if absent or invalid — this
+ *  is a convenience default, never a requirement. */
+export async function fetchDefaultOverlay(sessionId: string): Promise<SavedOverlayState | null> {
+  try {
+    const r = await fetch(mediaUrl(`${sessionId}_overlay.json`))
+    if (!r.ok) return null
+    return parseOverlayFile(await r.text())
+  } catch {
+    return null
+  }
+}
 
 export type LoadStage = 'uploading' | 'parsing' | 'downloading' | 'preparing'
 
