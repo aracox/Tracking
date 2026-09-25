@@ -1,0 +1,5 @@
+.overlay2d { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: none; cursor: grab; }
+.overlay2d:active { cursor: grabbing; }
+.overlay2d-video, .overlay2d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.overlay2d-video { object-fit: contain; background: #000; pointer-events: none; }
+.overlay2d-canvas { pointer-events: none; }

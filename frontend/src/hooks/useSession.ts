@@ -4,7 +4,7 @@ import type { MotionData } from '../types'
 
 export type SessionSource =
   | { kind: 'server'; id: string }
-  | { kind: 'upload'; position: File; velocity: File | null }
+  | { kind: 'upload'; position: File; velocity: File | null; video: File | null }
 
 export type SessionState =
   | { status: 'idle' }

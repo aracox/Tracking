@@ -3,6 +3,8 @@ export interface SessionSummary {
   positionFile: string
   velocityFile: string | null
   hasVelocity: boolean
+  videoFile: string | null
+  hasVideo: boolean
   frameCount: number | null
   markerCount: number | null
   sampleRate: number | null
@@ -20,6 +22,8 @@ export interface SessionMetadata {
   positionFile: string
   velocityFile: string | null
   hasVelocity: boolean
+  videoFile: string | null
+  hasVideo: boolean
   frameCount: number
   firstFrame: number
   lastFrame: number
@@ -83,4 +87,29 @@ export interface ViewSettings {
   velocityHorizon: number // seconds; display-only
   grid: boolean
   axes: boolean
+}
+
+export type ViewMode = '3d' | 'overlay2d'
+
+/** Which two (mapped, display-space) axes a flat 2D overlay projects. Since there is
+ *  no camera calibration, this is a manually-aligned approximation, not a true
+ *  camera projection. */
+export type OverlayPlane = 'front' | 'side' | 'top'
+
+/** Manual 2D alignment of the projected skeleton over the video. Display-only;
+ *  never affects source data. Pixels-per-metre scale + pixel pan, so it is
+ *  independent of canvas size. */
+export interface OverlayTransform {
+  plane: OverlayPlane
+  mirrorX: boolean
+  mirrorY: boolean
+  rotationDeg: number
+  scale: number // pixels per display-unit (metre)
+  offsetX: number // pixels, relative to the video frame's own centre
+  offsetY: number
+}
+
+export interface LayerSettings {
+  visible: boolean
+  opacity: number // 0..1
 }

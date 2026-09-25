@@ -17,6 +17,17 @@ from . import validation as val
 log = logging.getLogger(__name__)
 
 _FILE_RE = re.compile(r"^(?P<id>.+)_(?P<kind>pos|vel)\.xlsx$", re.IGNORECASE)
+# Qualisys Oqus camera export, e.g. "test1_Oqus_9_18012.mp4" (<id>_Oqus_<camera>_<serial>).
+# An optional "_seekable" suffix names a re-encoded copy with frequent keyframes: Oqus
+# exports are often near all-P-frame with very sparse keyframes, which makes browser
+# seeking slow/imprecise (video.currentTime can settle far from the requested time).
+# When a `_seekable` copy sits next to the original, we serve that one and never touch
+# the raw camera export. Re-encode with e.g.:
+#   ffmpeg -i in_Oqus_9_18012.mp4 -c:v libx264 -crf 20 -g 1 -pix_fmt yuv420p -an \
+#          in_Oqus_9_18012_seekable.mp4
+_VIDEO_RE = re.compile(
+    r"^(?P<id>.+)_Oqus_\d+_\d+(?P<seekable>_seekable)?\.(?P<ext>mp4|mov|avi|webm)$", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -24,27 +35,39 @@ class SessionFiles:
     id: str
     position: Path
     velocity: Path | None
+    video: Path | None = None
 
     def signature(self) -> tuple:
         sig = [self.position.stat().st_mtime_ns]
         sig.append(self.velocity.stat().st_mtime_ns if self.velocity else None)
+        sig.append(self.video.stat().st_mtime_ns if self.video else None)
         return tuple(sig)
 
 
 def discover_files(data_dir: Path) -> dict[str, SessionFiles]:
-    """Group `<id>_Pos.xlsx` / `<id>_Vel.xlsx` by id. Position file is required."""
+    """Group `<id>_Pos.xlsx` / `<id>_Vel.xlsx` (+ optional `<id>_Oqus_*` camera video) by id.
+    Position file is required. A `_seekable` video copy is preferred over the raw
+    export when both are present (see _VIDEO_RE)."""
     pos: dict[str, Path] = {}
     vel: dict[str, Path] = {}
+    video_raw: dict[str, Path] = {}
+    video_seekable: dict[str, Path] = {}
     if not data_dir.is_dir():
         return {}
     for p in sorted(data_dir.iterdir()):
         if not p.is_file() or p.name.startswith(("~$", ".")):
             continue
+        if m := _VIDEO_RE.match(p.name):
+            (video_seekable if m["seekable"] else video_raw)[m["id"]] = p
+            continue
         m = _FILE_RE.match(p.name)
         if not m:
             continue
         (pos if m["kind"].lower() == "pos" else vel)[m["id"]] = p
-    return {i: SessionFiles(i, pos[i], vel.get(i)) for i in sorted(pos)}
+    return {
+        i: SessionFiles(i, pos[i], vel.get(i), video_seekable.get(i, video_raw.get(i)))
+        for i in sorted(pos)
+    }
 
 
 def build_session(files: SessionFiles) -> MotionSession:
@@ -85,6 +108,7 @@ def build_session(files: SessionFiles) -> MotionSession:
         id=files.id,
         position_file=files.position.name,
         velocity_file=None,
+        video_file=files.video.name if files.video else None,
         frames=frames,
         timestamps=times,
         marker_names=names,
@@ -159,6 +183,8 @@ def metadata_for(s: MotionSession) -> SessionMetadata:
         positionFile=s.position_file,
         velocityFile=s.velocity_file,
         hasVelocity=s.has_velocity,
+        videoFile=s.video_file,
+        hasVideo=s.has_video,
         frameCount=s.frame_count,
         firstFrame=int(s.frames[0]),
         lastFrame=int(s.frames[-1]),
@@ -227,6 +253,8 @@ class SessionService:
                 positionFile=f.position.name,
                 velocityFile=f.velocity.name if f.velocity else None,
                 hasVelocity=f.velocity is not None,
+                videoFile=f.video.name if f.video else None,
+                hasVideo=f.video is not None,
             )
             try:
                 h = qp.read_header(f.position)

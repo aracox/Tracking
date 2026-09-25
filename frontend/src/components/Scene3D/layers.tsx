@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { MotionData, ViewSettings } from '../../types'
 import type { PlaybackEngine } from '../../lib/playback'
 import { displayScale, qualisysToThree, writeQualisysAsThree } from '../../lib/coords'
+import { MARKER_HEX, markerSide } from '../../lib/markerColors'
 import { useIndexedFrame } from './useIndexedFrame'
 
 export interface LayerProps {
@@ -14,15 +15,14 @@ export interface LayerProps {
   selected: number | null
 }
 
-const COLOR_LEFT = new THREE.Color('#4da3ff')
-const COLOR_RIGHT = new THREE.Color('#ff8a4d')
-const COLOR_MID = new THREE.Color('#c9d1d9')
-const COLOR_SELECTED = new THREE.Color('#ffe14d')
+const COLOR_LEFT = new THREE.Color(MARKER_HEX.left)
+const COLOR_RIGHT = new THREE.Color(MARKER_HEX.right)
+const COLOR_MID = new THREE.Color(MARKER_HEX.mid)
+const COLOR_SELECTED = new THREE.Color(MARKER_HEX.selected)
 
 function markerColor(name: string): THREE.Color {
-  if (/\sl$/i.test(name)) return COLOR_LEFT
-  if (/\sr$/i.test(name)) return COLOR_RIGHT
-  return COLOR_MID
+  const side = markerSide(name)
+  return side === 'left' ? COLOR_LEFT : side === 'right' ? COLOR_RIGHT : COLOR_MID
 }
 
 const MARKER_RADIUS = 0.011 // display units (metres)

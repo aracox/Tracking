@@ -17,7 +17,7 @@ export function SessionList({ sessions, active, onOpen }: { sessions: SessionSum
               <div className="s-meta">
                 {s.frameCount} frames · {s.markerCount} markers · {s.sampleRate} Hz
                 <br />
-                {s.hasVelocity ? 'Pos + Vel' : 'Position only'}
+                {s.hasVelocity ? 'Pos + Vel' : 'Position only'}{s.hasVideo ? ' + Video' : ''}
               </div>
             )}
           </li>
@@ -37,6 +37,7 @@ export function SessionInfo({ data }: { data: MotionData }) {
         <dt>Session</dt><dd>{m.id}</dd>
         <dt>Position file</dt><dd>{m.positionFile}</dd>
         <dt>Velocity file</dt><dd>{m.velocityFile ?? '—'}</dd>
+        <dt>Video file</dt><dd>{m.videoFile ?? '—'}</dd>
         <dt>Frame count</dt><dd>{m.frameCount}</dd>
         <dt>First / last frame</dt><dd>{m.firstFrame} / {m.lastFrame}</dd>
         <dt>Sampling</dt><dd>{m.sampleRate} Hz</dd>
@@ -60,10 +61,19 @@ export function SessionInfo({ data }: { data: MotionData }) {
   )
 }
 
-/** Open local Qualisys exports without them being on the server (e.g. on Vercel). */
-export function UploadPanel({ onOpen, active }: { onOpen: (pos: File, vel: File | null) => void; active: string | null }) {
+/** Open local Qualisys exports without them being on the server (e.g. on Vercel).
+ *  The video never leaves the browser — it's read directly as a local file, not
+ *  uploaded to the API (see hooks/useVideoUrl.ts). */
+export function UploadPanel({
+  onOpen,
+  active,
+}: {
+  onOpen: (pos: File, vel: File | null, video: File | null) => void
+  active: string | null
+}) {
   const [pos, setPos] = useState<File | null>(null)
   const [vel, setVel] = useState<File | null>(null)
+  const [video, setVideo] = useState<File | null>(null)
   return (
     <section className="panel upload">
       <h3>Open files</h3>
@@ -73,7 +83,10 @@ export function UploadPanel({ onOpen, active }: { onOpen: (pos: File, vel: File 
       <label>Velocity <span className="muted">(optional)</span>
         <input type="file" accept=".xlsx" onChange={(e) => setVel(e.target.files?.[0] ?? null)} />
       </label>
-      <button className="primary" disabled={!pos} onClick={() => pos && onOpen(pos, vel)}>Load</button>
+      <label>Camera video <span className="muted">(optional, e.g. *_Oqus_*.mp4)</span>
+        <input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files?.[0] ?? null)} />
+      </label>
+      <button className="primary" disabled={!pos} onClick={() => pos && onOpen(pos, vel, video)}>Load</button>
       {active && <p className="muted">Loaded: {active}</p>}
     </section>
   )

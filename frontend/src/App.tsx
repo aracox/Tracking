@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchSessions, fetchSkeleton } from './services/api'
 import { useSession, type SessionSource } from './hooks/useSession'
+import { useVideoUrl } from './hooks/useVideoUrl'
 import { useHotkeys } from './hooks/useHotkeys'
 import { PlaybackEngine } from './lib/playback'
-import type { SessionSummary, SkeletonConfig, TrailWindow, ViewSettings } from './types'
+import { resolveSkeletonPairs } from './lib/skeletonPairs'
+import { DEFAULT_OVERLAY_TRANSFORM } from './lib/overlay'
+import type { LayerSettings, OverlayTransform, SessionSummary, SkeletonConfig, TrailWindow, ViewMode, ViewSettings } from './types'
 import { Scene3D, type SceneApi } from './components/Scene3D/Scene3D'
+import { Overlay2D, type Overlay2DApi } from './components/Overlay2D/Overlay2D'
+import { OverlayControls } from './components/Overlay2D/OverlayControls'
 import { PlaybackControls } from './components/PlaybackControls/PlaybackControls'
 import { MarkerPanel } from './components/MarkerPanel/MarkerPanel'
 import { Charts } from './components/Charts/Charts'
 import { SessionInfo, SessionList, UploadPanel } from './components/SessionPanel/SessionPanel'
+
+const DEFAULT_LAYER: LayerSettings = { visible: true, opacity: 1 }
 
 const DEFAULTS: ViewSettings = {
   markers: true,
@@ -41,16 +48,31 @@ const TRAIL_OPTIONS: { label: string; value: TrailWindow }[] = [
 export default function App() {
   const engine = useMemo(() => new PlaybackEngine(), [])
   const sceneApi = useRef<SceneApi>(null)
+  const overlayApi = useRef<Overlay2DApi>(null)
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [listError, setListError] = useState<string | null>(null)
   const [skeleton, setSkeleton] = useState<SkeletonConfig>({ connections: [] })
   const [source, setSource] = useState<SessionSource | null>(null)
   const [selected, setSelected] = useState<number | null>(0)
   const [settings, setSettings] = useState<ViewSettings>(DEFAULTS)
+
+  const [viewMode, setViewMode] = useState<ViewMode>('3d')
+  const [overlayTransform, setOverlayTransform] = useState<OverlayTransform>(DEFAULT_OVERLAY_TRANSFORM)
+  // Anchor for the Scale slider's percentage readout — the scale Auto-fit/Reset last
+  // settled on. Wheel-zoom still edits transform.scale directly; the slider just
+  // shows/sets it relative to this anchor so its range doesn't jump around.
+  const [baseScale, setBaseScale] = useState(DEFAULT_OVERLAY_TRANSFORM.scale)
+  const [videoOffsetSeconds, setVideoOffsetSeconds] = useState(0)
+  const [videoDuration, setVideoDuration] = useState<number | null>(null)
+  const [videoLayer, setVideoLayer] = useState<LayerSettings>(DEFAULT_LAYER)
+  const [trackingLayer, setTrackingLayer] = useState<LayerSettings>(DEFAULT_LAYER)
+
   const state = useSession(source)
   const serverId = source?.kind === 'server' ? source.id : null
   const openServer = (id: string) => setSource({ kind: 'server', id })
   const data = state.status === 'ready' ? state.data : null
+  const videoUrl = useVideoUrl(source, data)
+  const skeletonPairs = useMemo(() => (data ? resolveSkeletonPairs(data.markers, skeleton) : []), [data, skeleton])
 
   const refresh = () =>
     fetchSessions()
@@ -70,6 +92,14 @@ export default function App() {
     if (data) {
       engine.load(data.timestamps)
       setSelected((s) => (s !== null && s < data.markerCount ? s : 0))
+      // Overlay alignment is per-video; a new session starts from a clean slate.
+      setViewMode('3d')
+      setOverlayTransform(DEFAULT_OVERLAY_TRANSFORM)
+      setBaseScale(DEFAULT_OVERLAY_TRANSFORM.scale)
+      setVideoOffsetSeconds(0)
+      setVideoDuration(null)
+      setVideoLayer(DEFAULT_LAYER)
+      setTrackingLayer(DEFAULT_LAYER)
     }
   }, [data, engine])
 
@@ -118,10 +148,22 @@ export default function App() {
         </label>
         <button onClick={refresh} title="Rescan data/ folder">↻ Rescan</button>
         <span className="spacer" />
-        <div className="camera-btns">
-          <button onClick={() => sceneApi.current?.reset()} title="Reset camera (R)">Reset camera</button>
-          <button onClick={() => sceneApi.current?.fit()} title="Fit to data (F)">Fit</button>
-        </div>
+        {videoUrl && (
+          <div className="view-mode">
+            <button className={viewMode === '3d' ? 'active' : ''} onClick={() => setViewMode('3d')}>3D</button>
+            <button className={viewMode === 'overlay2d' ? 'active' : ''} onClick={() => setViewMode('overlay2d')}>2D overlay</button>
+          </div>
+        )}
+        {viewMode === '3d' ? (
+          <div className="camera-btns">
+            <button onClick={() => sceneApi.current?.reset()} title="Reset camera (R)">Reset camera</button>
+            <button onClick={() => sceneApi.current?.fit()} title="Fit to data (F)">Fit</button>
+          </div>
+        ) : (
+          <div className="camera-btns">
+            <button onClick={() => overlayApi.current?.autoFit()} title="Auto-fit tracking to video">Auto-fit</button>
+          </div>
+        )}
       </header>
 
       <div className="main">
@@ -129,7 +171,7 @@ export default function App() {
           <SessionList sessions={sessions} active={serverId} onOpen={openServer} />
           <UploadPanel
             active={source?.kind === 'upload' ? source.position.name : null}
-            onOpen={(position, velocity) => setSource({ kind: 'upload', position, velocity })}
+            onOpen={(position, velocity, video) => setSource({ kind: 'upload', position, velocity, video })}
           />
           {data && (
             <section className="panel markers">
@@ -159,7 +201,7 @@ export default function App() {
             </div>
           )}
           {state.status === 'error' && <div className="overlay error">Failed to load <b>{state.id}</b>: {state.message}</div>}
-          {data && (
+          {data && viewMode === '3d' && (
             <Scene3D
               ref={sceneApi}
               key={data.meta.id}
@@ -171,10 +213,59 @@ export default function App() {
               skeleton={skeleton}
             />
           )}
+          {data && viewMode === 'overlay2d' && videoUrl && (
+            <Overlay2D
+              ref={overlayApi}
+              key={data.meta.id}
+              data={data}
+              engine={engine}
+              settings={settings}
+              selected={selected}
+              skeletonPairs={skeletonPairs}
+              videoUrl={videoUrl}
+              videoOffsetSeconds={videoOffsetSeconds}
+              transform={overlayTransform}
+              videoLayer={videoLayer}
+              trackingLayer={trackingLayer}
+              onVideoDuration={setVideoDuration}
+              onAutoFitResult={(patch) => {
+                setOverlayTransform((t) => ({ ...t, ...patch }))
+                setBaseScale(patch.scale)
+              }}
+              onNudge={(dx, dy, scaleFactor) =>
+                setOverlayTransform((t) => ({
+                  ...t,
+                  offsetX: t.offsetX + dx,
+                  offsetY: t.offsetY + dy,
+                  scale: Math.min(Math.max(t.scale * scaleFactor, 2), 20000),
+                }))
+              }
+            />
+          )}
         </div>
 
         <aside className="right">
           {data && <MarkerPanel data={data} engine={engine} selected={selected} onSelect={setSelected} />}
+          {data && videoUrl && viewMode === 'overlay2d' && (
+            <OverlayControls
+              transform={overlayTransform}
+              onTransform={(patch) => setOverlayTransform((t) => ({ ...t, ...patch }))}
+              onAutoFit={() => overlayApi.current?.autoFit()}
+              onReset={() => {
+                setOverlayTransform(DEFAULT_OVERLAY_TRANSFORM)
+                setBaseScale(DEFAULT_OVERLAY_TRANSFORM.scale)
+              }}
+              baseScale={baseScale}
+              videoLayer={videoLayer}
+              trackingLayer={trackingLayer}
+              onVideoLayer={(patch) => setVideoLayer((l) => ({ ...l, ...patch }))}
+              onTrackingLayer={(patch) => setTrackingLayer((l) => ({ ...l, ...patch }))}
+              videoOffsetSeconds={videoOffsetSeconds}
+              onVideoOffset={setVideoOffsetSeconds}
+              videoDuration={videoDuration}
+              mocapDuration={data.meta.duration}
+            />
+          )}
           <section className="panel">
             <h3>Display</h3>
             <div className="checks">

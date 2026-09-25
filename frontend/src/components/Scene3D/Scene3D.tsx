@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { MotionData, SkeletonConfig, ViewSettings } from '../../types'
 import type { PlaybackEngine } from '../../lib/playback'
+import { resolveSkeletonPairs } from '../../lib/skeletonPairs'
 import { GridAndAxes, Labels, Markers, Skeleton, Trails, VelocityVectors } from './layers'
 import './Scene3D.css'
 
@@ -71,16 +72,7 @@ export const Scene3D = forwardRef<SceneApi, Props>(function Scene3D(
   ref,
 ) {
   const [labelHost, setLabelHost] = useState<HTMLDivElement | null>(null)
-  const pairs = useMemo(() => {
-    const idx = new Map(data.markers.map((n, i) => [n.trim(), i]))
-    const out: [number, number][] = []
-    for (const [a, b] of skeleton.connections) {
-      const i = idx.get(a.trim())
-      const j = idx.get(b.trim())
-      if (i !== undefined && j !== undefined) out.push([i, j])
-    }
-    return out
-  }, [data, skeleton])
+  const pairs = useMemo(() => resolveSkeletonPairs(data.markers, skeleton), [data, skeleton])
 
   const layer = { data, engine, settings, selected }
   return (

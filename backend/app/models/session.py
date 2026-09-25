@@ -15,6 +15,7 @@ class MotionSession:
     id: str
     position_file: str
     velocity_file: str | None
+    video_file: str | None  # filename only; served separately via /media, never parsed here
     frames: np.ndarray  # [F] int64, original Qualisys frame numbers
     timestamps: np.ndarray  # [F] float64 seconds
     marker_names: list[str]  # [M]
@@ -38,6 +39,10 @@ class MotionSession:
         return self.velocities is not None
 
     @property
+    def has_video(self) -> bool:
+        return self.video_file is not None
+
+    @property
     def duration(self) -> float:
         return float(self.timestamps[-1] - self.timestamps[0]) if self.frame_count else 0.0
 
@@ -47,6 +52,8 @@ class SessionSummary(BaseModel):
     positionFile: str
     velocityFile: str | None
     hasVelocity: bool
+    videoFile: str | None = None
+    hasVideo: bool = False
     frameCount: int | None = None
     markerCount: int | None = None
     sampleRate: float | None = None
@@ -64,6 +71,8 @@ class SessionMetadata(BaseModel):
     positionFile: str
     velocityFile: str | None
     hasVelocity: bool
+    videoFile: str | None
+    hasVideo: bool
     frameCount: int
     firstFrame: int
     lastFrame: int

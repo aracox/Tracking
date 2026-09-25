@@ -72,6 +72,38 @@ machine; verified by importing `api/index.py` without `data/` and uploading the 
 Invalid samples: marker, label, velocity vector and adjacent skeleton segments are hidden, trails break,
 charts show gaps. Coordinate mapping (Z-up -> Y-up) lives only in `frontend/src/lib/coords.ts`.
 
+## 2D video overlay
+
+If a session has a camera video (`<id>_Oqus_<camera>_<serial>.mp4`, the Qualisys/QTM export naming — auto-detected
+next to the Pos/Vel files in `data/` for local dev, or picked in **Open files**), the header shows a **2D overlay**
+view alongside **3D**. It flattens the tracked markers/skeleton onto one plane (Front/Side/Top) and draws them over
+the video.
+
+**There is no camera calibration in the Pos/Vel Excel export** (no intrinsics/extrinsics), so this is a manual,
+eyeballed alignment, not a calibrated projection: drag the view to pan, scroll to zoom, plus Mirror X/Y, Rotation
+and an **Auto-fit** button (fits the whole session's extent; picks a sensible default on load).
+
+Sync default: the video plays at `mocap Time column value + offset` (offset defaults to 0), assuming the video's
+own 0-based timeline starts at the same instant as the mocap capture. For test1 this holds almost exactly — the
+video's duration (4.4166 s) matches the mocap's last `Time` value (4.4167 s) — even though the exported Position
+table only starts at frame 122 (`Time` = 0.403 s), i.e. partway into that shared timeline. If a future dataset's
+video and mocap don't share a start this way, use the **Video sync** offset slider (seconds) to nudge it by eye.
+**Layers** lets you show/hide and set opacity for the video and tracking independently. All of this is
+display-only and never touches source data (see integrity layers below).
+
+**Seekable video copy.** Oqus camera exports are often near all-P-frame with very sparse keyframes (test1's had
+just 3 for the whole 4.4 s clip), which makes `<video>.currentTime` seeks slow/imprecise in the browser — playback
+can visibly lag or show the wrong pose. Drop a re-encoded copy named `<id>_Oqus_<camera>_<serial>_seekable.mp4`
+next to the original and it's served instead (raw export is never modified):
+```bash
+ffmpeg -i test1_Oqus_9_18012.mp4 -c:v libx264 -crf 20 -g 1 -pix_fmt yuv420p -an \
+       test1_Oqus_9_18012_seekable.mp4
+```
+(`-g 1`: a keyframe every frame. `-an`: drop audio, unused here. Bumps file size but not resolution/fps/duration.)
+
+The uploaded video never reaches the API — the browser reads it directly (`URL.createObjectURL`), so it isn't
+subject to Vercel's request-size limits either.
+
 ## Layout
 `backend/app/services/` (`qualisys_parser`, `validation`, `session_service`) · `backend/app/api/` ·
 `frontend/src/lib/playback.ts` (engine) · `frontend/src/components/Scene3D/` · `config/skeleton.json`.
@@ -90,8 +122,10 @@ Space play/pause · <-/-> step · Shift+<-/-> jump 0.5 s · Home/End · R reset 
 - Whole session is sent as JSON (~1.6 MB, ~0.6 MB gzipped for 4 s); long recordings would need binary/chunked transfer.
 - Loading stages shown in the UI reflect request phases; the server gives no fine-grained parse progress.
 - Skeleton lines are 1 px WebGL lines. Skeleton marker meanings (`sc`, `st`, `H 1/5`) are inferred from names.
-- The `.mp4` files in `data/` are ignored (future synchronized video).
+- 2D video overlay has no camera calibration, so alignment is manual/eyeballed (see above), not pixel-accurate.
+- Video-to-mocap sync is a manual offset slider; there's no shared timecode/hardware sync signal in the exports.
 
 ## Phase 2 ideas
-C3D import, QTM real-time streaming over WebSocket, acceleration/joint angles, filtering, CSV/PNG/MP4 export,
-multi-session overlay/comparison, event annotations, video sync, binary transport, auth/deployment.
+C3D import, QTM real-time streaming over WebSocket, camera calibration import for a true projected overlay,
+acceleration/joint angles, filtering, CSV/PNG/MP4 export, multi-session overlay/comparison, event annotations,
+binary transport, auth/deployment.

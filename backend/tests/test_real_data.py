@@ -67,3 +67,26 @@ def test_api_end_to_end(real_data_dir):
     assert c.get("/api/sessions/nope").status_code == 404
     sk = c.get("/api/skeleton").json()["connections"]
     assert all(a.strip() in md["markers"] and b.strip() in md["markers"] for a, b in sk)
+
+
+def test_video_served_with_range_support(real_data_dir):
+    # A `_seekable` re-encode (frequent keyframes) is preferred over the raw Oqus
+    # export when present -- see session_service._VIDEO_RE -- so allow either.
+    video = real_data_dir / "test1_Oqus_9_18012_seekable.mp4"
+    if not video.exists():
+        video = real_data_dir / "test1_Oqus_9_18012.mp4"
+    if not video.exists():
+        import pytest
+
+        pytest.skip("data/test1_Oqus_9_18012*.mp4 not present")
+    c = TestClient(app)
+    md = c.get("/api/sessions/test1").json()
+    assert md["hasVideo"] and md["videoFile"] == video.name
+    assert next(x for x in c.get("/api/sessions").json() if x["id"] == "test1")["hasVideo"]
+
+    full = c.get(f"/media/{md['videoFile']}")
+    assert full.status_code == 200 and full.headers["content-type"] == "video/mp4"
+    assert int(full.headers["content-length"]) == video.stat().st_size
+
+    ranged = c.get(f"/media/{md['videoFile']}", headers={"Range": "bytes=0-999"})
+    assert ranged.status_code == 206 and len(ranged.content) == 1000

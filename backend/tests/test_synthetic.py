@@ -21,11 +21,31 @@ def rows(n, zero_from=None, nan_at=None):
 
 
 def test_filename_matching(tmp_path):
-    for n in ["s1_Pos.xlsx", "s1_Vel.xlsx", "s2_Pos.xlsx", "orphan_Vel.xlsx", "~$s3_Pos.xlsx", "notes.xlsx", "S4_pos.XLSX"]:
+    names = [
+        "s1_Pos.xlsx", "s1_Vel.xlsx", "s2_Pos.xlsx", "orphan_Vel.xlsx",
+        "~$s3_Pos.xlsx", "notes.xlsx", "S4_pos.XLSX",
+        "s1_Oqus_9_18012.mp4", "s2_Oqus_1_5.MOV", "orphan_Oqus_1_1.mp4",
+    ]
+    for n in names:
         (tmp_path / n).write_bytes(b"x")
     found = ss.discover_files(tmp_path)
-    assert list(found) == ["S4", "s1", "s2"]  # sorted; orphan Vel ignored; temp files ignored
+    assert list(found) == ["S4", "s1", "s2"]  # sorted; orphan Vel/video ignored; temp files ignored
     assert found["s1"].velocity is not None and found["s2"].velocity is None
+    assert found["s1"].video.name == "s1_Oqus_9_18012.mp4"
+    assert found["s2"].video.name == "s2_Oqus_1_5.MOV"  # extension case-insensitive
+    assert found["S4"].video is None
+
+
+def test_seekable_video_preferred(tmp_path):
+    write_qualisys(tmp_path / "p_Pos.xlsx", "pos", MK, rows(5))
+    (tmp_path / "p_Oqus_9_18012.mp4").write_bytes(b"raw")
+    (tmp_path / "p_Oqus_9_18012_seekable.mp4").write_bytes(b"seekable")
+    found = ss.discover_files(tmp_path)
+    assert found["p"].video.name == "p_Oqus_9_18012_seekable.mp4"  # never the raw export
+    # order of discovery shouldn't matter
+    (tmp_path / "p_Oqus_9_18012_seekable.mp4").unlink()
+    found = ss.discover_files(tmp_path)
+    assert found["p"].video.name == "p_Oqus_9_18012.mp4"  # falls back when absent
 
 
 def test_parse_and_validity(tmp_path):
@@ -63,6 +83,19 @@ def test_position_only_and_frame_sync(tmp_path):
     s = ss.build_session(ss.discover_files(tmp_path)["p"])
     assert np.isnan(s.velocities[:2]).all() and np.isclose(s.velocities[2, 0, 0], 1.0)
     assert any("no velocity row" in w for w in s.warnings)
+
+
+def test_video_association(tmp_path):
+    write_qualisys(tmp_path / "p_Pos.xlsx", "pos", MK, rows(10), first_frame=1)
+    (tmp_path / "p_Oqus_9_18012.mp4").write_bytes(b"fake-mp4")
+    s = ss.build_session(ss.discover_files(tmp_path)["p"])
+    assert s.has_video and s.video_file == "p_Oqus_9_18012.mp4"
+    md = ss.metadata_for(s)
+    assert md.hasVideo and md.videoFile == "p_Oqus_9_18012.mp4"
+
+    svc = ss.SessionService(tmp_path)
+    summ = svc.list_sessions()[0]
+    assert summ.hasVideo and summ.videoFile == "p_Oqus_9_18012.mp4"
 
 
 def test_short_zero_run_not_flagged():

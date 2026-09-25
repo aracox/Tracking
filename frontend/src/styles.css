@@ -17,6 +17,9 @@ header h1 { font-size: 13px; font-weight: 600; margin: 0 8px 0 0; letter-spacing
 header label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .spacer { flex: 1; }
 .camera-btns { display: flex; gap: 6px; }
+.view-mode { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-right: 6px; }
+.view-mode button { border: none; border-radius: 0; }
+.view-mode button.active { background: #1f4b7a; color: #fff; }
 
 button, select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
 button:hover, select:hover { border-color: #3a4554; }
@@ -53,8 +56,17 @@ aside.right { border-left: 1px solid var(--line); }
 .loss, .warn { margin: 6px 0 0; font-size: 11px; } .loss { color: var(--warn); } .warn { color: var(--warn); }
 
 .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin-bottom: 8px; }
+.checks.two { grid-template-columns: 1fr 1fr; margin: 6px 0; }
 .checks label, .row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 .row { display: flex; align-items: center; gap: 8px; margin-top: 6px; } .row > span { color: var(--muted); min-width: 78px; } .row input[type=range] { flex: 1; min-width: 0; }
+
+.overlay-controls h3.sub { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.overlay-controls .hint { margin: 4px 0 0; font-size: 10.5px; line-height: 1.4; }
+.overlay-controls .btn-row { display: flex; gap: 6px; margin-top: 8px; }
+.overlay-controls .btn-row button { flex: 1; }
+.overlay-controls .layer-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.overlay-controls .layer-row label { min-width: 78px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.overlay-controls .layer-row input[type=range] { flex: 1; min-width: 0; }
 .keys { padding: 8px 12px; font-size: 10.5px; }
 
 .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; text-align: center; z-index: 5; background: rgba(14,17,22,.85); padding: 24px; }

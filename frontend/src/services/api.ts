@@ -21,6 +21,10 @@ async function getJson<T>(path: string): Promise<T> {
 export const fetchSessions = () => getJson<SessionSummary[]>('/api/sessions')
 export const fetchSkeleton = () => getJson<SkeletonConfig>('/api/skeleton')
 
+/** URL for a server-discovered session's camera video (local dev only; data/ is not
+ *  deployed on Vercel, so server sessions there never report `hasVideo`). */
+export const mediaUrl = (filename: string) => `${BASE}/media/${encodeURIComponent(filename)}`
+
 export type LoadStage = 'uploading' | 'parsing' | 'downloading' | 'preparing'
 
 /** Loads a complete session once; playback afterwards is entirely local. */
